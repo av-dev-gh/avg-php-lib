@@ -30,7 +30,7 @@ trait Transactions
 
         $url = 'https://pay.avangard.ru/iacq/h2h/get_opers_list';
 
-        $result = $this->client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
         $status = $result->getStatusCode();
 
@@ -78,7 +78,7 @@ trait Transactions
 
         $url = 'https://pay.avangard.ru/iacq/h2h/get_opers_by_date';
 
-        $result = $this->client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
         $status = $result->getStatusCode();
 

@@ -26,7 +26,7 @@ trait Refunds
     public function orderRefund($ticket, $amount = null)
     {
         $params = ['ticket' => $ticket];
-        if(!empty($amount)) {
+        if (!empty($amount)) {
             $params['amount'] = $amount;
         }
         $request = array_merge($this->getOrderAccess(), $params);
@@ -35,11 +35,11 @@ trait Refunds
 
         $url = 'https://pay.avangard.ru/iacq/h2h/reverse_order';
 
-        $result = $this->client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
         $status = $result->getStatusCode();
 
-        if($status != 200) {
+        if ($status != 200) {
             throw new \InvalidArgumentException(
                 "orderRefund: incorrect http code: " . $status, $status
             );
@@ -51,7 +51,7 @@ trait Refunds
         $resultObject = Convertor::covertToArray($response);
         error_reporting(E_ALL);
 
-        if(!isset($resultObject['response_code'])) {
+        if (!isset($resultObject['response_code'])) {
             throw new \InvalidArgumentException(
                 "orderRefund: error in xml data"
             );
@@ -73,7 +73,7 @@ trait Refunds
             }
         }
 
-        if($status == 200 && $resultObject['response_code'] == 0) {
+        if ($status == 200 && $resultObject['response_code'] == 0) {
             return ['transaction_id' => $resultObject['id']];
         }
 
@@ -97,11 +97,11 @@ trait Refunds
 
         $url = 'https://pay.avangard.ru/iacq/h2h/cancel_order';
 
-        $result = $this->client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
         $status = $result->getStatusCode();
 
-        if($status != 200) {
+        if ($status != 200) {
             throw new \InvalidArgumentException(
                 "orderCancel: incorrect http code: " . $status, $status
             );
@@ -113,13 +113,13 @@ trait Refunds
         $resultObject = Convertor::covertToArray($response);
         error_reporting(E_ALL);
 
-        if(!isset($resultObject['response_code'])) {
+        if (!isset($resultObject['response_code'])) {
             throw new \InvalidArgumentException(
                 "orderCancel: error in xml data"
             );
         }
 
-        if($status == 200 && $resultObject['response_code'] == 0) {
+        if ($status == 200 && $resultObject['response_code'] == 0) {
             return true;
         }
 
@@ -136,7 +136,7 @@ trait Refunds
      * @throws \DOMException
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function getRefundStatus(int $rev_id): bool
+    public function getRefundStatus($rev_id)
     {
         $params = compact('rev_id');
 
@@ -146,11 +146,11 @@ trait Refunds
 
         $url = 'https://pay.avangard.ru/iacq/h2h/reverse_status';
 
-        $result = $this->client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
         $status = $result->getStatusCode();
 
-        if($status != 200) {
+        if ($status != 200) {
             throw new \InvalidArgumentException(
                 "getRefundStatus: incorrect http code: " . $status, $status
             );
@@ -162,7 +162,7 @@ trait Refunds
         $resultObject = Convertor::covertToArray($response);
         error_reporting(E_ALL);
 
-        if(!isset($resultObject['status_id'])) {
+        if (!isset($resultObject['status_id'])) {
             throw new \InvalidArgumentException(
                 "getRefundStatus: error in xml data"
             );

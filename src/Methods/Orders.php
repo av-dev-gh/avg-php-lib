@@ -62,6 +62,7 @@ trait Orders
     protected function signRequest()
     {
         $order = $this->getOrder();
+
         return strtoupper(
             MD5(
                 strtoupper(
@@ -91,7 +92,7 @@ trait Orders
 
         $url = 'https://pay.avangard.ru/iacq/h2h/get_order_info';
 
-        $result = $this->client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
         $status = $result->getStatusCode();
 
@@ -144,30 +145,27 @@ trait Orders
                 $url = "https://pay.avangard.ru/iacq/post";
                 $method = "post";
                 $this->setOrder($order);
-                $this->checkOrder();
+                $this->checkAndPrepareOrder();
                 $inputs = $this->getOrder();
                 $inputs['SIGNATURE'] = $this->signRequest();
                 unset($inputs['SHOP_PASSWD']);
                 break;
             case ApiClient::GETURL:
                 $inputs = $this->orderRegister($order);
-                $url = 'https://pay.avangard.ru/iacq/pay?' . http_build_query(['ticket' => $inputs['TICKET']]);
-                return $url;
+                return 'https://pay.avangard.ru/iacq/pay?' . http_build_query(['ticket' => $inputs['TICKET']]);
             default:
                 throw new \InvalidArgumentException(
                     "prepareForms: incorrect request type"
                 );
         }
 
-        $inputs = array_change_key_case($inputs, CASE_LOWER);
+        $inputs = array_change_key_case($inputs);
 
-        $returnArray = [
+        return [
             "URL" => $url,
             "METHOD" => $method,
             "INPUTS" => $inputs
         ];
-
-        return $returnArray;
     }
 
     /**
@@ -180,7 +178,7 @@ trait Orders
     public function orderRegister($order)
     {
         $this->setOrder($order);
-        $this->checkOrder();
+        $this->checkAndPrepareOrder();
         $order = $this->getOrder();
 
         if(!empty($order['BACK_URL'])) {
@@ -197,7 +195,7 @@ trait Orders
 
         $url = 'https://pay.avangard.ru/iacq/h2h/reg';
 
-        $result = $this->client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
         $status = $result->getStatusCode();
 
@@ -221,10 +219,7 @@ trait Orders
 
         if ($status == 200 && $resultObject['response_code'] == 0) {
             return [
-//                'id' => $resultObject['id'],
                 'TICKET' => $resultObject['ticket'],
-//                'ok_code' => $resultObject['ok_code'],
-//                'failure_code' => $resultObject['failure_code']
             ];
         }
 
@@ -244,6 +239,15 @@ trait Orders
         if (empty($order['LANGUAGE'])) {
             $order['LANGUAGE'] = 'RU';
         }
+
+        if (!empty($order['ORDER_ITEMS'])) {
+            for ($i = 0; $i < count($order['ORDER_ITEMS']); $i++) {
+                $order['ORDER_ITEMS'][$i]['num'] = $i + 1;
+            }
+
+            $order['ORDER_ITEMS'] = json_encode($order['ORDER_ITEMS']);
+        }
+
         return array_merge($this->getOrderAccess(), $order);
     }
 
@@ -252,7 +256,7 @@ trait Orders
      *
      * @param (array) $order
      * $order exist:
-     * - AMOUNT (number, require) сумма к оплате
+     * - AMOUNT (number, require) сумма к оплате в копейках
      * - ORDER_NUMBER (string, require) номер заказа в магазине
      * - ORDER_DESCRIPTION (string, require) описание заказа в магазине
      * - LANGUAGE (string, require, default 'RU') описание заказа в магазине
@@ -261,22 +265,58 @@ trait Orders
      * - BACK_URL_FAIL (string) ссылка НЕуспешного редиректа
      * - CLIENT_NAME (string) имя плательщика
      * - CLIENT_ADDRESS (string) физический адрес плательщика
-     * - CLIENT_EMAIL (string) email плательщика
+     * - CLIENT_EMAIL (string, require, если включена отправка чеков) email плательщика
      * - CLIENT_PHONE (string) телефон плательщика
      * - CLIENT_IP (string) ip-адрес плательщика
+     * - ORDER_ITEMS (array) можно передавать при настроенной фискализации для формирования позиций в чеке
+     *      Имеет следующий вид:
+     *          [
+     *              [
+     *                  num - позиция в чеке (заполнять не нужно, проставляется автоматически в методе prepareOrder)
+     *                  name - наименование товара
+     *                  quantity - количество товара
+     *                  price - цена за единицу товара в рублях
+     *                  fullPrice - итоговая цена позиции
+     *              ],
+     *              ...
+     *          ]
+     *      Сумма всех товаров в ORDER_ITEMS должна равняться полю AMOUNT / 100
      */
-    protected function checkOrder()
+    protected function checkAndPrepareOrder()
     {
         $order = $this->getOrder();
-        $order = $this->prepareOrder($order);
 
-        if (count($order) > 14) {
-            throw new \InvalidArgumentException(
-                'checkOrder: too many arguments'
-            );
+        if (!empty($order['ORDER_ITEMS'])) {
+            $orderItemsReqParams = [
+                'name' => 'STRING',
+                'quantity' => 'NUMERIC',
+                'price' => 'NUMERIC',
+                'fullPrice' => 'NUMERIC',
+            ];
+
+            $orderItemsTotal = 0;
+            foreach ($order['ORDER_ITEMS'] as $item) {
+                foreach ($orderItemsReqParams as $key => $type) {
+                    if (empty($item[$key])) {
+                        throw new \InvalidArgumentException(
+                            'checkOrder: error in validation: order item key ' . $key . ' not found'
+                        );
+                    }
+                }
+
+                $orderItemsTotal += $item['fullPrice'];
+            }
+
+            $orderAmount = $order['AMOUNT'] / 100;
+            if ($orderItemsTotal != $orderAmount) {
+                throw new \InvalidArgumentException(
+                    "checkOrder: error in validation: total items price $orderItemsTotal not equal to order amount $orderAmount"
+                );
+            }
         }
 
-//        try {
+        $order = $this->prepareOrder($order);
+
         $arrayOfReq = [
             'SHOP_ID' => "STRING",
             'SHOP_PASSWD' => 'STRING',
@@ -287,51 +327,17 @@ trait Orders
             'BACK_URL' => 'URL',
         ];
 
+        if ($this->isSendBills()) {
+            $arrayOfReq['CLIENT_EMAIL'] = 'STRING';
+        }
+
         foreach ($arrayOfReq as $key => $type) {
             if (empty($order[$key])) {
                 throw new \InvalidArgumentException(
                     'checkOrder: error in validation: key ' . $key . ' not found'
                 );
             }
-//                Assert::that($order)->keyExists($key);
-//                switch ($type) {
-//                    case 'STRING':
-//                        Assert::that($order[$key])->string();
-//                        break;
-//                    case 'NUMERIC':
-//                        Assert::that($order[$key])->numeric();
-//                        break;
-//                    case 'URL':
-//                        Assert::that($order[$key])->string()->url();
-//                        break;
-//                    default:
-//                        break;
-//                }
         }
-
-//            $all = [
-//                'SHOP_ID' => "STRING",
-//                'SHOP_PASSWD' => 'STRING',
-//                'AMOUNT' => 'NUMERIC',
-//                'ORDER_NUMBER' => 'STRING',
-//                'ORDER_DESCRIPTION' => 'STRING',
-//                'LANGUAGE' => 'STRING',
-//                'BACK_URL' => 'URL',
-//                'BACK_URL_OK' => 'URL',
-//                'BACK_URL_FAIL' => 'URL',
-//                'CLIENT_NAME' => 'STRING',
-//                'CLIENT_ADDRESS' => 'STRING',
-//                'CLIENT_EMAIL' => 'STRING',
-//                'CLIENT_PHONE' => 'STRING',
-//                'CLIENT_IP' => 'STRING'
-//            ];
-
-//        } catch (\Assert\InvalidArgumentException $e) {
-////            print_r($e);
-//            throw new \InvalidArgumentException(
-//                'checkOrder: error in validation: ' . $e->getMessage(), $e->getCode()
-//            );
-//        }
 
         $this->setOrder($order);
     }

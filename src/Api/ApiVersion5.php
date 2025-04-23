@@ -9,25 +9,25 @@ use Avangard\Methods;
 use Box\DataObjects\BaseAuth;
 
 /**
- * Class ApiVersion4
+ * Class ApiVersion5
  *
  * @package Avangard\Api
  */
-class ApiVersion4 extends AbstractLoader
+class ApiVersion5 extends AbstractLoader
 {
     /**
-     * ApiVersion4 constructor.
+     * ApiVersion5 constructor.
      *
      * @param $shop_id
      * @param $shop_password
      * @param $shop_sign
      * @param $server_sign
-     * @param BaseAuth|null $boxAuth
+     * @param $send_bills
      * @param $proxy
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $boxAuth, $proxy)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $send_bills, $proxy)
     {
-        parent::__construct($shop_id, $shop_password, $shop_sign, $server_sign, $boxAuth, $proxy);
+        parent::__construct($shop_id, $shop_password, $shop_sign, $server_sign, $send_bills, $proxy);
     }
 
     use Methods\Orders;

@@ -22,24 +22,29 @@ abstract class AbstractLoader
      *
      * @var Client
      */
-    protected $client;
+    protected $net_client;
+
     /**
      * Bank shop id
      *
      * @var string
      */
     protected $shop_id;
+
     /**
      * Bank shop password
      *
      * @var string
      */
     protected $shop_password;
+
     /**
      * Bank shop signature
+     *
      * @var string
      */
     protected $shop_sign;
+
     /**
      * Bank server signature
      *
@@ -48,11 +53,11 @@ abstract class AbstractLoader
     protected $server_sign;
 
     /**
-     * Object of one of the boxes
+     * Flag indicates sending bill data to bank
      *
-     * @var BaseBox|null
+     * @var bool
      */
-    protected $box = null;
+    protected $send_bills;
 
     /**
      * AbstractLoader constructor.
@@ -61,10 +66,10 @@ abstract class AbstractLoader
      * @param $shop_password
      * @param $shop_sign
      * @param $server_sign
-     * @param BaseAuth|null $boxAuth
+     * @param $send_bills
      * @param $proxy
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $boxAuth, $proxy)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $send_bills, $proxy)
     {
         if (empty($shop_id) ||
             empty($shop_password) ||
@@ -76,32 +81,17 @@ abstract class AbstractLoader
             );
         }
 
-        $this->client = new Client((!empty($proxy) ? ['proxy' => $proxy, 'http_errors' => false, 'verify' => false] : ['http_errors' => false, 'verify' => false]));
+        $this->net_client = new Client((!empty($proxy) ? ['proxy' => $proxy, 'http_errors' => false, 'verify' => false] : ['http_errors' => false, 'verify' => false]));
         $this->shop_id = (string)$shop_id;
         $this->shop_password = (string)$shop_password;
         $this->shop_sign = (string)$shop_sign;
         $this->server_sign = (string)$server_sign;
-        $this->box = BoxFactory::createBox($boxAuth, $this->client);
+        $this->send_bills = $send_bills;
     }
 
-    /**
-     * Check box object
-     *
-     * @return bool
-     */
-    public function isBox()
+    protected function isSendBills()
     {
-        return !empty($this->getBox());
-    }
-
-    /**
-     * Get box object
-     *
-     * @return BaseBox|null
-     */
-    protected function getBox()
-    {
-        return $this->box;
+        return $this->send_bills;
     }
 
     /**

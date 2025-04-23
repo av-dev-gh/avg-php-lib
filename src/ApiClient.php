@@ -5,8 +5,7 @@
 
 namespace Avangard;
 
-use Avangard\Api\ApiVersion4;
-use Box\DataObjects\BaseAuth;
+use Avangard\Api\ApiVersion5;
 
 /**
  * Class ApiClient
@@ -17,7 +16,7 @@ class ApiClient
     /**
      * Contain object of selected class version api
      *
-     * @var ApiVersion4
+     * @var ApiVersion5
      */
     public $request;
 
@@ -41,22 +40,11 @@ class ApiClient
      * @param $shopPassword
      * @param $shopSign
      * @param $serverSign
-     * @param BaseAuth|null $boxAuth
      * @param string $proxy
      */
-    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $boxAuth, $proxy = null)
+    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $sendBills = false, $proxy = null)
     {
-        $this->request = new ApiVersion4($shopId, $shopPassword, $shopSign, $serverSign, $boxAuth, $proxy);
-    }
-
-    /**
-     * Get API version
-     *
-     * @return array
-     */
-    public static function getApiVersions()
-    {
-        return ['v4.0'];
+        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $sendBills, $proxy);
     }
 
     /**
@@ -66,7 +54,7 @@ class ApiClient
      */
     public static function getVersion()
     {
-        $ver = '3.1.0';
-        return "Library version $ver. Avangard (c) 2023.";
+        $ver = '4.0.0';
+        return "Library version $ver. Avangard (c) 2025.";
     }
 }
