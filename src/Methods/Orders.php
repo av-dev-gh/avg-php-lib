@@ -8,6 +8,9 @@ namespace Avangard\Methods;
 use Avangard\ApiClient;
 use Avangard\Lib\Convertor;
 use Avangard\Lib\ArrayToXml;
+use Avangard\Lib\Fiscalization;
+use DOMException;
+use GuzzleHttp\Exception\GuzzleException;
 
 /**
  * Trait Orders (register order into bank's payment system (PS))
@@ -82,7 +85,7 @@ trait Orders
      *
      * @param $ticket
      * @return mixed[]
-     * @throws \DOMException
+     * @throws DOMException
      */
     public function getOrderByTicket($ticket)
     {
@@ -173,7 +176,7 @@ trait Orders
      *
      * @param $order
      * @return array
-     * @throws \DOMException
+     * @throws DOMException|GuzzleException
      */
     public function orderRegister($order)
     {
@@ -241,11 +244,7 @@ trait Orders
         }
 
         if (!empty($order['ORDER_ITEMS'])) {
-            for ($i = 0; $i < count($order['ORDER_ITEMS']); $i++) {
-                $order['ORDER_ITEMS'][$i]['num'] = $i + 1;
-            }
-
-            $order['ORDER_ITEMS'] = json_encode($order['ORDER_ITEMS']);
+            $order['ORDER_ITEMS'] = Fiscalization::prepareOrderItems($order['ORDER_ITEMS']);
         }
 
         return array_merge($this->getOrderAccess(), $order);
@@ -256,27 +255,29 @@ trait Orders
      *
      * @param (array) $order
      * $order exist:
-     * - AMOUNT (number, require) сумма к оплате в копейках
+     * - AMOUNT (number, require) сумма к оплате, в копейках
      * - ORDER_NUMBER (string, require) номер заказа в магазине
      * - ORDER_DESCRIPTION (string, require) описание заказа в магазине
-     * - LANGUAGE (string, require, default 'RU') описание заказа в магазине
+     * - LANGUAGE (string, require, default 'RU') язык запроса
      * - BACK_URL (string, require) ссылка безусловного редиректа
      * - BACK_URL_OK (string) ссылка успешного редиректа
      * - BACK_URL_FAIL (string) ссылка НЕуспешного редиректа
      * - CLIENT_NAME (string) имя плательщика
      * - CLIENT_ADDRESS (string) физический адрес плательщика
-     * - CLIENT_EMAIL (string, require, если включена отправка чеков) email плательщика
+     * - CLIENT_EMAIL (string) email плательщика
      * - CLIENT_PHONE (string) телефон плательщика
+     *      Внимание! Если у вас настроена фискализация, то должно быть обязательно заполнено хотя бы одно поле - CLIENT_EMAIL или CLIENT_PHONE!
      * - CLIENT_IP (string) ip-адрес плательщика
      * - ORDER_ITEMS (array) можно передавать при настроенной фискализации для формирования позиций в чеке
      *      Имеет следующий вид:
      *          [
      *              [
-     *                  num - позиция в чеке (заполнять не нужно, проставляется автоматически в методе prepareOrder)
-     *                  name - наименование товара
-     *                  quantity - количество товара
-     *                  price - цена за единицу товара в рублях
-     *                  fullPrice - итоговая цена позиции
+     *                  num (number, require) - позиция в чеке
+     *                  name (string, require) - наименование товара
+     *                  quantity (number, require) - количество товара
+     *                  price (number, require) - цена за единицу товара в рублях
+     *                  fullPrice (number, require) - итоговая цена позиции
+     *                  isService (0/1) - значение заполняется, если позиция в чеке является доставкой или иной услугой (необходимо для выставления правильного объекта расчёта)
      *              ],
      *              ...
      *          ]
@@ -287,30 +288,14 @@ trait Orders
         $order = $this->getOrder();
 
         if (!empty($order['ORDER_ITEMS'])) {
-            $orderItemsReqParams = [
-                'name' => 'STRING',
-                'quantity' => 'NUMERIC',
-                'price' => 'NUMERIC',
-                'fullPrice' => 'NUMERIC',
-            ];
-
-            $orderItemsTotal = 0;
-            foreach ($order['ORDER_ITEMS'] as $item) {
-                foreach ($orderItemsReqParams as $key => $type) {
-                    if (empty($item[$key])) {
-                        throw new \InvalidArgumentException(
-                            'checkOrder: error in validation: order item key ' . $key . ' not found'
-                        );
-                    }
-                }
-
-                $orderItemsTotal += $item['fullPrice'];
-            }
-
-            $orderAmount = $order['AMOUNT'] / 100;
-            if ($orderItemsTotal != $orderAmount) {
+            try {
+                Fiscalization::checkOrderItems([
+                    'items' => $order['ORDER_ITEMS'],
+                    'amount' => $order['AMOUNT'],
+                ]);
+            } catch (\Exception $e) {
                 throw new \InvalidArgumentException(
-                    "checkOrder: error in validation: total items price $orderItemsTotal not equal to order amount $orderAmount"
+                    'checkAndPrepareOrder: ' . $e->getMessage()
                 );
             }
         }
@@ -327,14 +312,10 @@ trait Orders
             'BACK_URL' => 'URL',
         ];
 
-        if ($this->isSendBills()) {
-            $arrayOfReq['CLIENT_EMAIL'] = 'STRING';
-        }
-
         foreach ($arrayOfReq as $key => $type) {
             if (empty($order[$key])) {
                 throw new \InvalidArgumentException(
-                    'checkOrder: error in validation: key ' . $key . ' not found'
+                    'checkAndPrepareOrder: error in validation: key ' . $key . ' not found'
                 );
             }
         }

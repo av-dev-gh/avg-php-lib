@@ -5,9 +5,11 @@
 
 namespace Avangard\Methods;
 
-use Avangard\ApiClient;
 use Avangard\Lib\Convertor;
 use Avangard\Lib\ArrayToXml;
+use Avangard\Lib\Fiscalization;
+use DOMException;
+use GuzzleHttp\Exception\GuzzleException;
 
 /**
  * Trait Refunds
@@ -18,20 +20,55 @@ trait Refunds
     /**
      * Send refund by ticket
      *
-     * @param $ticket
-     * @param null $amount
+     * @param (array) $params
+     * - TICKET (string, require) ticket заказа в системе банка
+     * todo проверить, в копейках или нет
+     * - AMOUNT (float) сумма к возврату, может отсутствовать. Должна быть меньше или равна сумме заказа
+     *      Если AMOUNT равен сумме заказа или отсутствует, то будет произведён полный возврат.
+     *      Если AMOUNT меньше суммы заказа, то будет произведён частичный возврат
+     * - ORDER_ITEMS (array) можно передавать при настроенной фискализации для формирования позиций в чеке
+     *      Имеет следующий вид:
+     *          [
+     *              [
+     *                  num (number, require) - позиция в чеке
+     *                  name (string, require) - наименование товара
+     *                  quantity (number, require) - количество товара
+     *                  price (number, require) - цена за единицу товара в рублях
+     *                  fullPrice (number, require) - итоговая цена позиции
+     *                  isService (0/1) - значение заполняется, если позиция в чеке является доставкой или иной услугой (необходимо для выставления правильного объекта расчёта)
+     *              ],
+     *              ...
+     *          ]
+     *      Сумма всех товаров в ORDER_ITEMS должна равняться полю AMOUNT / 100
      * @return array
-     * @throws \DOMException
+     * @throws DOMException|GuzzleException
      */
-    public function orderRefund($ticket, $amount = null)
+    public function orderRefund($params)
     {
-        $params = ['ticket' => $ticket];
-        if (!empty($amount)) {
-            $params['amount'] = $amount;
+        if (empty($params['TICKET'])) {
+            throw new \InvalidArgumentException(
+                'orderRefund: ticket not found'
+            );
         }
+
+        if (!empty($params['ORDER_ITEMS'])) {
+            try {
+                Fiscalization::checkOrderItems([
+                    'items' => $params['ORDER_ITEMS'],
+                    'amount' => $params['AMOUNT'],
+                ]);
+            } catch (\Exception $e) {
+                throw new \InvalidArgumentException(
+                    'orderRefund: ' . $e->getMessage()
+                );
+            }
+
+            $params['ORDER_ITEMS'] = Fiscalization::prepareOrderItems($params['ORDER_ITEMS']);
+        }
+
         $request = array_merge($this->getOrderAccess(), $params);
 
-        $xml = ArrayToXml::convert($request, 'reverse_order', false, "UTF-8");
+        $xml = ArrayToXml::convert($request, 'REVERSE_ORDER', false, "UTF-8");
 
         $url = 'https://pay.avangard.ru/iacq/h2h/reverse_order';
 
@@ -58,18 +95,14 @@ trait Refunds
         }
 
         if (isset($resultObject['rev_id'])) {
-            try {
-                $maxRequestsCount = 8;
-                $secondsBetweenRequests = 5;
+            $maxRequestsCount = 8;
+            $secondsBetweenRequests = 5;
 
-                for ($i = 0; $i < $maxRequestsCount; $i++) {
-                    sleep($secondsBetweenRequests);
+            for ($i = 0; $i < $maxRequestsCount; $i++) {
+                sleep($secondsBetweenRequests);
 
-                    if ($this->getRefundStatus($resultObject['rev_id']))
-                        break;
-                }
-            } catch (\InvalidArgumentException $e) {
-                throw $e;
+                if ($this->getRefundStatus($resultObject['rev_id']))
+                    break;
             }
         }
 
@@ -87,7 +120,7 @@ trait Refunds
      *
      * @param $ticket
      * @return bool
-     * @throws \DOMException
+     * @throws DOMException|GuzzleException
      */
     public function orderCancel($ticket)
     {
@@ -133,8 +166,7 @@ trait Refunds
      *
      * @param int $rev_id
      * @return bool
-     * @throws \DOMException
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @throws DOMException|GuzzleException
      */
     public function getRefundStatus($rev_id)
     {

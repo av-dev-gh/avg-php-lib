@@ -42,9 +42,9 @@ class ApiClient
      * @param $serverSign
      * @param string $proxy
      */
-    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $sendBills = false, $proxy = null)
+    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $proxy = null)
     {
-        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $sendBills, $proxy);
+        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $proxy);
     }
 
     /**

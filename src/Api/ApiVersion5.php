@@ -22,12 +22,11 @@ class ApiVersion5 extends AbstractLoader
      * @param $shop_password
      * @param $shop_sign
      * @param $server_sign
-     * @param $send_bills
      * @param $proxy
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $send_bills, $proxy)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $proxy)
     {
-        parent::__construct($shop_id, $shop_password, $shop_sign, $server_sign, $send_bills, $proxy);
+        parent::__construct($shop_id, $shop_password, $shop_sign, $server_sign, $proxy);
     }
 
     use Methods\Orders;

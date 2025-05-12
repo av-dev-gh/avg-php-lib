@@ -53,23 +53,15 @@ abstract class AbstractLoader
     protected $server_sign;
 
     /**
-     * Flag indicates sending bill data to bank
-     *
-     * @var bool
-     */
-    protected $send_bills;
-
-    /**
      * AbstractLoader constructor.
      *
      * @param $shop_id
      * @param $shop_password
      * @param $shop_sign
      * @param $server_sign
-     * @param $send_bills
      * @param $proxy
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $send_bills, $proxy)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $proxy)
     {
         if (empty($shop_id) ||
             empty($shop_password) ||
@@ -86,12 +78,6 @@ abstract class AbstractLoader
         $this->shop_password = (string)$shop_password;
         $this->shop_sign = (string)$shop_sign;
         $this->server_sign = (string)$server_sign;
-        $this->send_bills = $send_bills;
-    }
-
-    protected function isSendBills()
-    {
-        return $this->send_bills;
     }
 
     /**
