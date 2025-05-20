@@ -18,6 +18,16 @@ use GuzzleHttp\Client;
 abstract class AbstractLoader
 {
     /**
+     * API url of test environment
+     */
+    const REQUEST_URL_TEST = 'https://pay.avangard.ru/iacq_test3';
+
+    /**
+     * API url of production environment
+     */
+    const REQUEST_URL_PRODUCTION = 'https://pay.avangard.ru/iacq';
+
+    /**
      * Object of Guzzle client
      *
      * @var Client
@@ -53,15 +63,23 @@ abstract class AbstractLoader
     protected $server_sign;
 
     /**
+     * Mode of API: test or production
+     *
+     * @var bool
+     */
+    protected $test_mode;
+
+    /**
      * AbstractLoader constructor.
      *
      * @param $shop_id
      * @param $shop_password
      * @param $shop_sign
      * @param $server_sign
+     * @param $test_mode
      * @param $proxy
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $proxy)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode, $proxy)
     {
         if (empty($shop_id) ||
             empty($shop_password) ||
@@ -78,6 +96,17 @@ abstract class AbstractLoader
         $this->shop_password = (string)$shop_password;
         $this->shop_sign = (string)$shop_sign;
         $this->server_sign = (string)$server_sign;
+        $this->test_mode = (bool)$test_mode;
+    }
+
+    /**
+     * Returns API URL
+     *
+     * @return string
+     */
+    protected function getRequestUrl()
+    {
+        return $this->test_mode ? self::REQUEST_URL_TEST : self::REQUEST_URL_PRODUCTION;
     }
 
     /**

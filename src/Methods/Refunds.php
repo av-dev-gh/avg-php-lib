@@ -7,7 +7,6 @@ namespace Avangard\Methods;
 
 use Avangard\Lib\Convertor;
 use Avangard\Lib\ArrayToXml;
-use Avangard\Lib\Fiscalization;
 use DOMException;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -53,7 +52,7 @@ trait Refunds
 
         if (!empty($params['ORDER_ITEMS'])) {
             try {
-                Fiscalization::checkOrderItems([
+                $this->checkOrderItems([
                     'items' => $params['ORDER_ITEMS'],
                     'amount' => $params['AMOUNT'],
                 ]);
@@ -63,14 +62,14 @@ trait Refunds
                 );
             }
 
-            $params['ORDER_ITEMS'] = Fiscalization::prepareOrderItems($params['ORDER_ITEMS']);
+            $params['ORDER_ITEMS'] = $this->prepareOrderItems($params['ORDER_ITEMS']);
         }
 
         $request = array_merge($this->getOrderAccess(), $params);
 
         $xml = ArrayToXml::convert($request, 'REVERSE_ORDER', false, "UTF-8");
 
-        $url = 'https://pay.avangard.ru/iacq/h2h/reverse_order';
+        $url = $this->getRequestUrl() . '/h2h/reverse_order';
 
         $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
@@ -128,7 +127,7 @@ trait Refunds
 
         $xml = ArrayToXml::convert($request, 'cancel_order', false, "UTF-8");
 
-        $url = 'https://pay.avangard.ru/iacq/h2h/cancel_order';
+        $url = $this->getRequestUrl() . '/h2h/cancel_order';
 
         $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
@@ -176,7 +175,7 @@ trait Refunds
 
         $xml = ArrayToXml::convert($request, 'reverse_status', false, "UTF-8");
 
-        $url = 'https://pay.avangard.ru/iacq/h2h/reverse_status';
+        $url = $this->getRequestUrl() . '/h2h/reverse_status';
 
         $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 

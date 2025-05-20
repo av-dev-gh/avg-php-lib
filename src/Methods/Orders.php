@@ -8,7 +8,6 @@ namespace Avangard\Methods;
 use Avangard\ApiClient;
 use Avangard\Lib\Convertor;
 use Avangard\Lib\ArrayToXml;
-use Avangard\Lib\Fiscalization;
 use DOMException;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -93,7 +92,7 @@ trait Orders
 
         $xml = ArrayToXml::convert($request, 'get_order_info', false, "UTF-8");
 
-        $url = 'https://pay.avangard.ru/iacq/h2h/get_order_info';
+        $url = $this->getRequestUrl() . '/h2h/get_order_info';
 
         $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
@@ -130,45 +129,88 @@ trait Orders
     }
 
     /**
-     * Generate form's field's
+     * Generate form fields
      *
-     * @param $order
-     * @param $type
+     * @param array $params
+     * - ORDER - (array, require) параметры заказа (см. checkAndPrepareOrder())
+     * - REQUEST_TYPE - (ApiClient::HOST2HOST, ApiClient::POSTFORM, ApiClient::GETURL) тип запроса. По умолчанию ApiClient::POSTFORM
+     * - PAYMENT_TYPE - (ApiClient::PAYMENT_TYPE_CARD, ApiClient::PAYMENT_TYPE_QR, ApiClient::PAYMENT_TYPE_ALL) способ оплаты. По карте, по QR или оба типа. По умолчанию ApiClient::PAYMENT_TYPE_CARD
+     *
      * @return array|string
+     * @throws DOMException|GuzzleException
      */
-    public function prepareForms($order, $type)
+    public function prepareForms($params)
     {
-        switch ($type) {
+        if (empty($params['ORDER'])) {
+            throw new \InvalidArgumentException(
+                "prepareForms: order is empty"
+            );
+        }
+
+        $order = $params['ORDER'];
+
+        $requestType = !empty($params['REQUEST_TYPE']) ? $params['REQUEST_TYPE'] : ApiClient::POSTFORM;
+        $paymentType = !empty($params['PAYMENT_TYPE']) ? $params['PAYMENT_TYPE'] : ApiClient::PAYMENT_TYPE_CARD;
+
+        switch ($requestType) {
             case ApiClient::HOST2HOST:
-                $url = "https://pay.avangard.ru/iacq/pay";
-                $method = "get";
-                $inputs = $this->orderRegister($order);
-                break;
+                $result = [
+                    'URL' => $this->getRequestUrl() . "/pay",
+                    'METHOD' => "get",
+                ];
+
+                if ($this->isPaymentTypeCard($paymentType)) {
+                    $result['INPUTS'] = array_change_key_case($this->orderRegister($order));
+                }
+
+                if ($this->isPaymentTypeQr($paymentType)) {
+                    $result['INPUTS_QR'] = array_change_key_case(
+                        $this->orderRegister(array_merge($order, ['IS_QR' => 1]))
+                    );
+                }
+
+                return $result;
+
+
             case ApiClient::POSTFORM:
-                $url = "https://pay.avangard.ru/iacq/post";
-                $method = "post";
-                $this->setOrder($order);
-                $this->checkAndPrepareOrder();
-                $inputs = $this->getOrder();
-                $inputs['SIGNATURE'] = $this->signRequest();
-                unset($inputs['SHOP_PASSWD']);
-                break;
+                $result = [
+                    'URL' => $this->getRequestUrl() . "/post",
+                    'METHOD' => "post",
+                ];
+
+                if ($this->isPaymentTypeCard($paymentType)) {
+                    $result['INPUTS'] = array_change_key_case($this->preparePostFormInputs($order));
+                }
+
+                if ($this->isPaymentTypeQr($paymentType)) {
+                    $result['INPUTS'] = array_change_key_case(
+                        $this->preparePostFormInputs(array_merge($order, ['IS_QR' => 1]))
+                    );
+                }
+
+                return $result;
+
+
             case ApiClient::GETURL:
                 $inputs = $this->orderRegister($order);
-                return 'https://pay.avangard.ru/iacq/pay?' . http_build_query(['ticket' => $inputs['TICKET']]);
+                return $this->getRequestUrl() . '/pay?' . http_build_query(['ticket' => $inputs['TICKET']]);
+
             default:
                 throw new \InvalidArgumentException(
                     "prepareForms: incorrect request type"
                 );
         }
+    }
 
-        $inputs = array_change_key_case($inputs);
+    protected function preparePostFormInputs($order)
+    {
+        $this->setOrder($order);
+        $this->checkAndPrepareOrder();
+        $inputs = $this->getOrder();
+        $inputs['SIGNATURE'] = $this->signRequest();
+        unset($inputs['SHOP_PASSWD']);
 
-        return [
-            "URL" => $url,
-            "METHOD" => $method,
-            "INPUTS" => $inputs
-        ];
+        return $inputs;
     }
 
     /**
@@ -196,7 +238,7 @@ trait Orders
 
         $xml = ArrayToXml::convert($order, 'NEW_ORDER', false, "UTF-8");
 
-        $url = 'https://pay.avangard.ru/iacq/h2h/reg';
+        $url = $this->getRequestUrl() . '/h2h/reg';
 
         $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
 
@@ -232,9 +274,9 @@ trait Orders
     }
 
     /**
-     * Prepare order to request
+     * Prepare order for request
      *
-     * @param $order
+     * @param array $order
      * @return array
      */
     protected function prepareOrder($order)
@@ -244,7 +286,7 @@ trait Orders
         }
 
         if (!empty($order['ORDER_ITEMS'])) {
-            $order['ORDER_ITEMS'] = Fiscalization::prepareOrderItems($order['ORDER_ITEMS']);
+            $order['ORDER_ITEMS'] = $this->prepareOrderItems($order['ORDER_ITEMS']);
         }
 
         return array_merge($this->getOrderAccess(), $order);
@@ -289,7 +331,7 @@ trait Orders
 
         if (!empty($order['ORDER_ITEMS'])) {
             try {
-                Fiscalization::checkOrderItems([
+                $this->checkOrderItems([
                     'items' => $order['ORDER_ITEMS'],
                     'amount' => $order['AMOUNT'],
                 ]);
@@ -321,5 +363,78 @@ trait Orders
         }
 
         $this->setOrder($order);
+    }
+
+    /**
+     * Validate order items and check order amount
+     *
+     * @param array $params
+     * - amount (number) сумма к оплате, в копейках. Если не передан, то проверка суммы всех товаров с общей суммой заказа не будет проводиться
+     * - items (array, require) список товаров
+     * @return void
+     */
+    protected function checkOrderItems($params)
+    {
+        $orderItemsReqParams = [
+            'name' => 'STRING',
+            'quantity' => 'NUMERIC',
+            'price' => 'NUMERIC',
+            'fullPrice' => 'NUMERIC',
+        ];
+
+        $orderItemsTotal = 0;
+        foreach ($params['items'] as $item) {
+            foreach ($orderItemsReqParams as $key => $type) {
+                if (empty($item[$key])) {
+                    throw new \InvalidArgumentException(
+                        'error in validation: order item key ' . $key . ' not found'
+                    );
+                }
+
+                if ((float)$item['price'] * (float)$item['quantity'] != (float)$item['fullPrice']) {
+                    throw new \InvalidArgumentException(
+                        'error in validation: item "' . $item['name'] . '" price * quantity not equal to item full price'
+                    );
+                }
+
+                if (isset($item['isService']) && !in_array($item['isService'], [0, 1])) {
+                    throw new \InvalidArgumentException(
+                        'error in validation: order item key isService should be 0 or 1'
+                    );
+                }
+            }
+
+            $orderItemsTotal += $item['fullPrice'];
+        }
+
+        if (!empty($params['amount'])) {
+            $orderAmount = $params['amount'] / 100;
+            if ($orderItemsTotal != $orderAmount) {
+                throw new \InvalidArgumentException(
+                    "error in validation: total items price $orderItemsTotal not equal to order amount $orderAmount"
+                );
+            }
+        }
+    }
+
+    /**
+     * Prepare order items for request
+     *
+     * @param array $items
+     * @return false|string
+     */
+    protected function prepareOrderItems($items)
+    {
+        return json_encode($items);
+    }
+
+    protected function isPaymentTypeCard($type)
+    {
+        return $type == ApiClient::PAYMENT_TYPE_CARD || $type == ApiClient::PAYMENT_TYPE_ALL;
+    }
+
+    protected function isPaymentTypeQr($type)
+    {
+        return $type == ApiClient::PAYMENT_TYPE_QR || $type == ApiClient::PAYMENT_TYPE_ALL;
     }
 }

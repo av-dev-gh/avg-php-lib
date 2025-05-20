@@ -34,17 +34,33 @@ class ApiClient
     const GETURL = 3;
 
     /**
+     * Payment type - by bank card
+     */
+    const PAYMENT_TYPE_CARD = 'payment_card';
+
+    /**
+     * Payment type - by QR-code (SBP)
+     */
+    const PAYMENT_TYPE_QR = 'payment_qr';
+
+    /**
+     * Payment type - all available
+     */
+    const PAYMENT_TYPE_ALL = 'payment_all';
+
+    /**
      * ApiClient constructor.
      *
-     * @param $shopId
-     * @param $shopPassword
-     * @param $shopSign
-     * @param $serverSign
+     * @param string $shopId
+     * @param string $shopPassword
+     * @param string $shopSign
+     * @param string $serverSign
+     * @param bool $test_mode
      * @param string $proxy
      */
-    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $proxy = null)
+    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $test_mode = false, $proxy = null)
     {
-        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $proxy);
+        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $test_mode, $proxy);
     }
 
     /**
