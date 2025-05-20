@@ -183,7 +183,7 @@ trait Orders
                 }
 
                 if ($this->isPaymentTypeQr($paymentType)) {
-                    $result['INPUTS'] = array_change_key_case(
+                    $result['INPUTS_QR'] = array_change_key_case(
                         $this->preparePostFormInputs(array_merge($order, ['IS_QR' => 1]))
                     );
                 }
