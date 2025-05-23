@@ -62,6 +62,30 @@ trait Transactions
     }
 
     /**
+     * Get ticket of first paid operation by order number
+     *
+     * @throws \DOMException
+     */
+    public function getTicketByOrderNumber($order_number)
+    {
+        $opersData = $this->getOpersByOrderNumber($order_number);
+
+        if (is_array($opersData)) {
+            foreach ($opersData as $operation) {
+                if ($operation["status_code"] == 3) {
+                    return $operation["ticket"];
+                }
+            }
+        } else {
+            if ($opersData["status_code"] == 3) {
+                return $opersData["ticket"];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Get all opers behind one day
      *
      * @param $date
