@@ -376,6 +376,7 @@ trait Orders
     protected function checkOrderItems($params)
     {
         $orderItemsReqParams = [
+            'num' => 'NUMERIC',
             'name' => 'STRING',
             'quantity' => 'NUMERIC',
             'price' => 'NUMERIC',
