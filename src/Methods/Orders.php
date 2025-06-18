@@ -426,7 +426,7 @@ trait Orders
      */
     protected function prepareOrderItems($items)
     {
-        return json_encode($items);
+        return json_encode($items, JSON_UNESCAPED_UNICODE);
     }
 
     protected function isPaymentTypeCard($type)
