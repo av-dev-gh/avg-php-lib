@@ -21,7 +21,7 @@ trait Refunds
      *
      * @param (array) $params
      * - TICKET (string, require) ticket заказа в системе банка
-     * - AMOUNT (float) сумма к возврату в копейках, может отсутствовать. Должна быть меньше или равна сумме заказа
+     * - AMOUNT (float) сумма к возврату, может отсутствовать. Должна быть меньше или равна сумме заказа
      *      Если AMOUNT равен сумме заказа или отсутствует, то будет произведён полный возврат.
      *      Если AMOUNT меньше суммы заказа, то будет произведён частичный возврат
      * - ORDER_ITEMS (array) можно передавать при настроенной фискализации для формирования позиций в чеке
@@ -51,10 +51,15 @@ trait Refunds
 
         if (!empty($params['ORDER_ITEMS'])) {
             try {
-                $this->checkOrderItems([
+                $checkData = [
                     'items' => $params['ORDER_ITEMS'],
-                    'amount' => $params['AMOUNT'],
-                ]);
+                ];
+
+                if (!empty($params['AMOUNT'])) {
+                    $checkData['amount'] = $params['AMOUNT'];
+                }
+
+                $this->checkOrderItems($checkData);
             } catch (\Exception $e) {
                 throw new \InvalidArgumentException(
                     'orderRefund: ' . $e->getMessage()
@@ -82,7 +87,7 @@ trait Refunds
 
         $response = $result->getBody()->getContents();
 
-        error_reporting(1); 
+        error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
         error_reporting(E_ALL);
 
