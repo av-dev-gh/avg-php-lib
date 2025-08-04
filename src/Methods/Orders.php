@@ -410,7 +410,7 @@ trait Orders
 
         if (!empty($params['amount'])) {
             $orderAmount = $params['amount'] / 100;
-            if ($orderItemsTotal != $orderAmount) {
+            if (abs($orderAmount - $orderItemsTotal) > 0.00001) {
                 throw new \InvalidArgumentException(
                     "error in validation: total items price $orderItemsTotal not equal to order amount $orderAmount"
                 );
