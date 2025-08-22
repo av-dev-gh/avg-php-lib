@@ -1,5 +1,5 @@
 # AVANGARD PHP Client
-Библиотека для интеграции с API V4 банка Авангард. Реализует основные запросы к API банка. Подробное описание API
+Библиотека для интеграции с API V5 банка Авангард. Реализует основные запросы к API банка. Подробное описание API
 смотрите в технической документации.
 
 ## Установка с помощью composer
@@ -13,7 +13,7 @@
     "repositories": [
         {
             "type": "git",
-            "url": "https://github.com/avangardDeveloper/Avangard-PHP-Lib"
+            "url": "https://github.com/av-dev-gh/avg-php-lib.git"
         }
     ]
 }
@@ -34,7 +34,7 @@ composer install
 require_once ("vendor/autoload.php");
 use Avangard\ApiClient;
 
-$apiClient = new ApiClient($shopId, $shopPassword, $shopSign, $serverSign, $boxAuth, $proxy);
+$apiClient = new ApiClient($shopId, $shopPassword, $shopSign, $serverSign, $test_mode, $proxy);
 ```
 
 ### Параметры конструктора
@@ -42,9 +42,8 @@ $apiClient = new ApiClient($shopId, $shopPassword, $shopSign, $serverSign, $boxA
 - `shopPassword` - пароль интернет-магазина в банковской системе*
 - `shopSign` - подпись интернет-магазина в банковской системе*
 - `serverSign` - подпись ответов банка*
-- `boxAuth` - объект, который содержит авторизационные данные для отправки чеков
-в онлайн-кассу. Если передать `null`, то отправка чеков производиться не будет. [Подробнее](#generateBoxAuth)
-- `proxy` - http url прокси сервера (если используется). По умолчанию `null`
+- `test_mode` - булево значение, включающее тестовый режим (запросы будут отправляться на тестовый URL). По умолчанию `false`
+- `proxy` - http URL прокси сервера (если используется). По умолчанию `null`
 
 *указанные параметры выдаются техподдержкой банка при заключении договора на интернет-эквайринг
 
@@ -65,63 +64,117 @@ try {
 
 ## Заказы и оплата
 
-1. `prepareForms($order, $type)` - подготавливает параметры для формы оплаты.
+1. `prepareForms($params)` - подготавливает параметры для формы оплаты.
 
 Параметры:
 - ```php
-    $order = [
-        'AMOUNT' => 'number, обязательный',                     // сумма к оплате в копейках
-        'ORDER_NUMBER' =>  'string, обязательный',              // номер заказа в интернет-магазине
-        'ORDER_DESCRIPTION' => 'string, обязательный',          // описание заказа в интернет-магазине
-        'LANGUAGE' => 'string, обязательный, по умолчанию RU',  // язык описания заказа в интернет-магазине
-        'BACK_URL' => 'string, обязательный',                   // ссылка безусловного редиректа
-        'BACK_URL_OK' => 'string',                              // ссылка успешного редиректа
-        'BACK_URL_FAIL' => 'string',                            // ссылка НЕуспешного редиректа
-        'CLIENT_NAME' => 'string',                              // имя плательщика
-        'CLIENT_ADDRESS' => 'string',                           // физический адрес плательщика
-        'CLIENT_EMAIL' => 'string',                             // email плательщика
-        'CLIENT_PHONE' => 'string',                             // телефон плательщика
-        'CLIENT_IP' => 'string'                                 // ip-адрес плательщика  
+    $params = [
+        'REQUEST_TYPE' => (                 // тип запроса. По умолчанию ApiClient::POSTFORM
+            ApiClient::HOST2HOST            // регистрирует оплату в интернет-эквайринге и возвращает TICKET-параметр для последующей оплаты заказа
+            ApiClient::POSTFORM             // подготавливает параметры для HTML формы оплаты, показываемой на стороне клиента (часто требуется для CMS)
+            ApiClient::GETURL               // регистрирует оплату в интернет-эквайринге и возвращает ссылку для последующей оплаты заказа
+        ),
+        'PAYMENT_TYPE' => (                 // способ оплаты. По умолчанию ApiClient::PAYMENT_TYPE_CARD
+            ApiClient::PAYMENT_TYPE_CARD    // возвращает набор полей для оплаты с помощью банковской карты
+            ApiClient::PAYMENT_TYPE_QR      // возвращает набор полей для оплаты по QR-коду
+            ApiClient::PAYMENT_TYPE_ALL     // возвращает два набора полей - для оплаты по карте и по QR-коду 
+        ), 
+        'ORDER' => [
+            'AMOUNT' => 'number, обязательный',                     // сумма к оплате в копейках
+            'ORDER_NUMBER' =>  'string, обязательный',              // номер заказа в интернет-магазине
+            'ORDER_DESCRIPTION' => 'string, обязательный',          // описание заказа в интернет-магазине
+            'LANGUAGE' => 'string, обязательный, по умолчанию RU',  // язык описания заказа в интернет-магазине
+            'BACK_URL' => 'string, обязательный',                   // ссылка безусловного редиректа
+            'BACK_URL_OK' => 'string',                              // ссылка успешного редиректа
+            'BACK_URL_FAIL' => 'string',                            // ссылка НЕуспешного редиректа
+            'CLIENT_NAME' => 'string',                              // имя плательщика
+            'CLIENT_ADDRESS' => 'string',                           // физический адрес плательщика
+            'CLIENT_EMAIL' => 'string',                             // email плательщика
+            'CLIENT_PHONE' => 'string',                             // телефон плательщика
+                // Внимание! Если у вас настроена фискализация,
+                // то должно быть обязательно заполнено хотя бы 
+                // одно поле - CLIENT_EMAIL или CLIENT_PHONE!
+            'CLIENT_IP' => 'string',                                // ip-адрес плательщика
+            'ORDER_ITEMS' => 'array'                                // можно передавать при настроенной фискализации для формирования позиций в чеке
+                [
+                    [
+                        'num' => 'number, обязательный',            // номер позиции в чеке (1, 2, 3, ...)
+                        'name' => 'string, обязательный',           // наименование товара
+                        'quantity' => 'number, обязательный',       // количество товара
+                        'price' => 'number, обязательный',          // цена за единицу товара в рублях
+                        'fullPrice' => 'number, обязательный',      // итоговая цена позиции
+                        'isService' => (0/1)                        // значение заполняется, если позиция в чеке является доставкой или иной услугой (необходимо для выставления правильного объекта расчёта)
+                    ],
+                    ...
+                ]
+        ],  
     ];
-    ```
-- ```php
-    $type =
-        ApiClient::HOST2HOST    // Регистрирует оплату в интернет-эквайринге и возвращает TICKET-параметр для последующей оплаты заказа
-        ApiClient::POSTFORM     // Подготавливает параметры для HTML формы оплаты, показываемой на стороне клиента (часто требуется для CMS)
-        ApiClient::GETURL       // Регистрирует оплату в интернет-эквайринге и возвращает ссылку для последующей оплаты заказа
     ```
     
 Возвращаемые значения:
-- `$type = ApiClient::HOST2HOST`:
+- `REQUEST_TYPE = ApiClient::HOST2HOST`:
 ```php
 [
     "URL" => "https://pay.avangard.ru/iacq/pay",
     "METHOD" => "get",
+    // если выбрана оплата по карте
     "INPUTS" => [
-        "TICKET" => "JGceLCtt000012682687LskJXuIpbfmpgeeKgkcj"
+        "ticket" => "JGceLCtt000012682687LskJXuIpbfmpgeeKgkcj"
+    ],
+    // если выбрана оплата по QR-коду
+    "INPUTS_QR" => [
+        "ticket" => "NcQohycZ000026617760GmDUPpIvXfUPevymBTmf"
     ]
 ]
 ```
-- `$type = ApiClient::POSTFORM`:
+- `REQUEST_TYPE = ApiClient::POSTFORM`:
 ```php
 [
-  "URL" => "https://pay.avangard.ru/iacq/post",
-  "METHOD" => "post",
-  "INPUTS" => [
-    "SHOP_ID" => "1",
-    "SHOP_PASSWD" => "pass",
-    "AMOUNT" => 1000,
-    "ORDER_NUMBER" => "sa12",
-    "ORDER_DESCRIPTION" => "My desc",
-    "BACK_URL" => "http://example.ru/payments/avangard/?result=success",
-    "LANGUAGE" => "RU",
-    "SIGNATURE" => "1EBE4761D9B165D8FF784803686AF511",
-  ]
+    "URL" => "https://pay.avangard.ru/iacq/post",
+    "METHOD" => "post",
+    // если выбрана оплата по карте
+    "INPUTS" => [
+        "shop_id" => "1",
+        "amount" => 1000,
+        "order_number" => "1",
+        "order_description" => "My desc",
+        "back_url" => "https://example.ru/",
+        "back_url_ok" => "https://example.ru/payments/avangard/?result=success",
+        "back_url_fail" => "https://example.ru/payments/avangard/?result=failure",
+        "client_name" => "Test Client",
+        "client_email" => "test@test.com",
+        "client_phone" => "+79991234567"
+        "order_items" => '[{"num":1,"name":"Test Product 1","quantity":1,"price":10,"fullPrice":10},{"num":2,"name":"Test Product 2","quantity":2,"price":10,"fullPrice":20},{"num":3,"name":"Delivery","quantity":1,"price":10,"fullPrice":10,"isService":1}]'
+        "language" => "RU",
+        "signature" => "1EBE4761D9B165D8FF784803686AF511",
+      ],
+    // если выбрана оплата по QR-коду
+    "INPUTS_QR" => [
+        "shop_id" => "1",
+        "amount" => 1000,
+        "order_number" => "1",
+        "order_description" => "My desc",
+        "back_url" => "https://example.ru/",
+        "back_url_ok" => "https://example.ru/payments/avangard/?result=success",
+        "back_url_fail" => "https://example.ru/payments/avangard/?result=failure",
+        "client_name" => "Test Client",
+        "client_email" => "test@test.com",
+        "client_phone" => "+79991234567"
+        "order_items" => '[{"num":1,"name":"Test Product 1","quantity":1,"price":10,"fullPrice":10},{"num":2,"name":"Test Product 2","quantity":2,"price":10,"fullPrice":20},{"num":3,"name":"Delivery","quantity":1,"price":10,"fullPrice":10,"isService":1}]'
+        "is_qr" => 1,
+        "language" => "RU",
+        "signature" => "1EBE4761D9B165D8FF784803686AF511",
+    ]
 ]
 ```
-- `$type = ApiClient::GETURL`:
+- `REQUEST_TYPE = ApiClient::GETURL`:
 ```php
-"https://pay.avangard.ru/iacq/pay?ticket=JGceLCtt000012682687LskJXuIpbfmpgeeKgkcj"
+[
+    // если выбрана оплата по карте
+    "PAY_URL" => "https://pay.avangard.ru/iacq/pay?ticket=JGceLCtt000012682687LskJXuIpbfmpgeeKgkcj",
+    // если выбрана оплата по QR-коду
+    "PAY_URL_QR" => "https://pay.avangard.ru/iacq/pay?ticket=NcQohycZ000026617760GmDUPpIvXfUPevymBTmf"
+]
 ```
 
 Пример HOST2HOST/GETURL:
@@ -138,17 +191,44 @@ try {
         'shop password',
         'shop sign',
         'server sign',
-        null
     );
     
     $order = [
-        'AMOUNT' => 1000,
-        'ORDER_NUMBER' => 'sa12',
+        'AMOUNT' => 4000,
+        'ORDER_NUMBER' => '1',
         'ORDER_DESCRIPTION' => 'My desc',
-        'BACK_URL' => 'http://example.ru/payments/avangard/?result=success'
+        'BACK_URL' => 'https://example.ru/payments/avangard/?result=success',
+        'ORDER_ITEMS' => [
+            [
+                'num' => 1,
+                'name' => 'Test Product 1',
+                'quantity' => 1,
+                'price' => 10,
+                'fullPrice' => 10,
+            ],
+            [
+                'num' => 2,
+                'name' => 'Test Product 2',
+                'quantity' => 2,
+                'price' => 10,
+                'fullPrice' => 20,
+            ],
+            [
+                'num' => 3,
+                'name' => 'Delivery',
+                'quantity' => 1,
+                'price' => 10,
+                'fullPrice' => 10,
+                'isService' => 1,
+            ],
+        ],
     ];
     
-    $result = $apiClient->request->prepareForms($order, ApiClient::HOST2HOST);
+    $result = $apiClient->request->prepareForms([
+        'ORDER' => $order,
+        'REQUEST_TYPE' => ApiClient::HOST2HOST,
+        'PAYMENT_TYPE' => ApiClient::PAYMENT_TYPE_ALL
+    ]);
     
     print_r($result);
 } catch (\Exception $e) {
@@ -165,7 +245,7 @@ require_once "vendor/autoload.php";
 
 use Avangard\ApiClient;
 
-function getFormData($orderNumber, $orderDescription, $amount)
+function getFormData($orderNumber, $orderDescription, $amount, $orderItems)
 {
     $debug = true;
     
@@ -174,18 +254,22 @@ function getFormData($orderNumber, $orderDescription, $amount)
             1,
             'shop password',
             'shop sign',
-            'server sign',
-            null
+            'server sign'
         );
         
         $order = [
             'AMOUNT' => $amount,
             'ORDER_NUMBER' => $orderNumber,
             'ORDER_DESCRIPTION' => $orderDescription,
-            'BACK_URL' => 'http://example.ru/payments/avangard/?result=success'
+            'BACK_URL' => 'https://example.ru/payments/avangard/?result=success',
+            'ORDER_ITEMS' => $orderItems,
         ];
         
-        $result = $apiClient->request->prepareForms($order, ApiClient::POSTFORM);
+        $result = $apiClient->request->prepareForms([
+            'ORDER' => $order,
+            'REQUEST_TYPE' => ApiClient::POSTFORM,
+            'PAYMENT_TYPE' => ApiClient::PAYMENT_TYPE_ALL
+        ]);
         
         return $result;
     } catch (\Exception $e) {
@@ -195,22 +279,57 @@ function getFormData($orderNumber, $orderDescription, $amount)
     }
 }
 
-$orderNumber = 'sa12';
+$orderNumber = '1';
 $orderDescription = 'My desc';
-$amount = 1000;
+$amount = 4000;
+$orderItems = [
+    [
+        'num' => 1,
+        'name' => 'Test Product 1',
+        'quantity' => 1,
+        'price' => 10,
+        'fullPrice' => 10,
+    ],
+    [
+        'num' => 2,
+        'name' => 'Test Product 2',
+        'quantity' => 2,
+        'price' => 10,
+        'fullPrice' => 20,
+    ],
+    [
+        'num' => 3,
+        'name' => 'Delivery',
+        'quantity' => 1,
+        'price' => 10,
+        'fullPrice' => 10,
+        'isService' => 1,
+    ],
+];
 
-$formData = getFormData($orderNumber, $orderDescription, $amount);
+$formData = getFormData($orderNumber, $orderDescription, $amount, $orderItems);
 ?>
 
-<form id="form" action="<?=$formData['URL'];?>" method="<?=$formData['METHOD'];?>">
-    <?php foreach ($formData['INPUTS'] as $name => $value):?>
-        <input type="hidden" name="<?=$name;?>" value="<?=$value;?>">
-    <?php endforeach;?>
-    <button type="submit">Перейти к оплате</button>
-</form>
+<?php if (!empty($formData['INPUTS'])):?>
+    <form id="form" action="<?=$formData['URL'];?>" method="<?=$formData['METHOD'];?>">
+        <?php foreach ($formData['INPUTS'] as $name => $value):?>
+            <input type="hidden" name="<?=$name;?>" value="<?=htmlspecialchars($value);?>">
+        <?php endforeach;?>
+        <button type="submit">Перейти к оплате</button>
+    </form>
+<?php endif;?>
+
+<?php if (!empty($formData['INPUTS_QR'])):?>
+    <form id="form" action="<?=$formData['URL'];?>" method="<?=$formData['METHOD'];?>">
+        <?php foreach ($formData['INPUTS_QR'] as $name => $value):?>
+            <input type="hidden" name="<?=$name;?>" value="<?=htmlspecialchars($value);?>">
+        <?php endforeach;?>
+        <button type="submit">Перейти к оплате по QR</button>
+    </form>
+<?php endif;?>
 ```
 
-2. `orderRegister($order)` - регистрирует оплату в интернет-эквайринге и возвращает TICKET-параметр для дальнейшей
+2. `orderRegister($order)` - регистрирует оплату в системе интернет-эквайринга и возвращает TICKET-параметр для дальнейшей
 оплаты.
 
 Параметры:
@@ -227,7 +346,22 @@ $order = [
     'CLIENT_ADDRESS' => 'string',                           // физический адрес плательщика
     'CLIENT_EMAIL' => 'string',                             // email плательщика
     'CLIENT_PHONE' => 'string',                             // телефон плательщика
-    'CLIENT_IP' => 'string'                                 // ip-адрес плательщика  
+        // Внимание! Если у вас настроена фискализация,
+        // то должно быть обязательно заполнено хотя бы 
+        // одно поле - CLIENT_EMAIL или CLIENT_PHONE!
+    'CLIENT_IP' => 'string',                                // ip-адрес плательщика
+    'ORDER_ITEMS' => 'array'                                // можно передавать при настроенной фискализации для формирования позиций в чеке
+        [
+            [
+                'num' => 'number, обязательный',            // номер позиции в чеке (1, 2, 3, ...)
+                'name' => 'string, обязательный',           // наименование товара
+                'quantity' => 'number, обязательный',       // количество товара
+                'price' => 'number, обязательный',          // цена за единицу товара в рублях
+                'fullPrice' => 'number, обязательный',      // итоговая цена позиции
+                'isService' => (0/1)                        // значение заполняется, если позиция в чеке является доставкой или иной услугой (необходимо для выставления правильного объекта расчёта)
+            ],
+            ...
+        ]
 ];
 ```
 
@@ -251,15 +385,14 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
     
     $order = [
         'AMOUNT' => 1000,
-        'ORDER_NUMBER' => 'sa12',
+        'ORDER_NUMBER' => '1',
         'ORDER_DESCRIPTION' => 'My desc',
-        'BACK_URL' => 'http://example.ru/payments/avangard/?result=success'
+        'BACK_URL' => 'https://example.ru/payments/avangard/?result=success'
     ];
     
     $result = $apiClient->request->orderRegister($order);
@@ -275,7 +408,7 @@ try {
 3. `getOrderByTicket($ticket)` - получить информацию об оплате по TICKET-параметру.
 
 Параметры:
-- `string $ticket` - уникальный идентификатор оплаты в интернет-эквайринге банка
+- `string $ticket` - уникальный идентификатор оплаты в системе интернет-эквайринга банка
 
 Пример возвращаемого массива:
 ```php
@@ -302,8 +435,7 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
     
     $result = $apiClient->request->getOrderByTicket("UWyNLGVh000012669958czZpckkboKNDpUysDhlL");
@@ -344,7 +476,7 @@ $_REQUEST = [
     'auth_code' => '',
     'amount' => '2000',
     'card_num' => '546938******1152',
-    'order_number' => 'sa12',
+    'order_number' => '1',
     'status_desc' => 'Исполнен',
     'status_date' => '2019-11-05 10:17:17.0',
     'refund_amount' => '0',
@@ -357,8 +489,7 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
     
     $result = $apiClient->request->isCorrectHash($_REQUEST);
@@ -393,7 +524,7 @@ $_REQUEST = array (
     'auth_code' => '',
     'amount' => '200',
     'card_num' => '546938******1152',
-    'order_number' => 'sa12',
+    'order_number' => '1',
     'status_desc' => 'Исполнен',
     'status_date' => '2019-11-05 10:17:17.0',
     'refund_amount' => '0',
@@ -406,8 +537,7 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
     
     if ($apiClient->request->isCorrectHash($_REQUEST)) {
@@ -426,15 +556,30 @@ try {
 
 ## Возврат средств и отмена оплаты
 
-1. `orderRefund($ticket, $amount = null)` - производит частичное/полное возмещение денежных средств по конкретной оплате.  
+1. `orderRefund($params)` - производит частичное/полное возмещение денежных средств по конкретной оплате.  
 Если оплата была совершена по QR коду (с помощью СБП), то после отправки запроса на возмещение денежных средств, метод
 производит проверку статуса возврата, т.к. возврат по оплатам, совершённым по QR, производится асинхронно. Всего
 осуществляется максимум 8 проверок статуса возврата, задержка между проверками 5 секунд
 
 Параметры:
-- `string $ticket` - уникальный идентификатор оплаты в интернет-эквайринге банка
-- `number $amount` - сумма к возврату **в копейках**. Если не передавать данный параметр, то будет произведен полный
-возврат денежных средств
+- ```php
+    $params = [
+        'TICKET' => 'string, обязательный', // уникальный идентификатор оплаты в системе интернет-эквайринга банка
+        'AMOUNT' => 'number',               // сумма к возврату в копейках. Если не передавать данный параметр, то будет произведен полный возврат денежных средств. Для этого ключ AMOUNT в массиве $params должен отсутствовать
+        'ORDER_ITEMS' => 'array'            // можно передавать при настроенной фискализации для формирования позиций в чеке
+        [
+            [
+                'num' => 'number, обязательный',        // номер позиции в чеке (1, 2, 3, ...)
+                'name' => 'string, обязательный',       // наименование товара
+                'quantity' => 'number, обязательный',   // количество товара
+                'price' => 'number, обязательный',      // цена за единицу товара в рублях
+                'fullPrice' => 'number, обязательный',  // итоговая цена позиции
+                'isService' => (0/1)                    // значение заполняется, если позиция в чеке является доставкой или иной услугой (необходимо для выставления правильного объекта расчёта)
+            ],
+            ...
+        ],  
+    ];
+    ```
 
 Возвращаемое значение:
 ```php
@@ -456,11 +601,37 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
 
-    $result = $apiClient->request->orderRefund("UWyNLGVh000012669958czZpckkboKNDpUysDhlL", 10000);
+    $result = $apiClient->request->orderRefund([
+        'TICKET' => "UWyNLGVh000012669958czZpckkboKNDpUysDhlL",
+        'AMOUNT' => 4000,
+        'ORDER_ITEMS' => [
+            [
+                'num' => 1,
+                'name' => 'Test Product 1',
+                'quantity' => 1,
+                'price' => 10,
+                'fullPrice' => 10,
+            ],
+            [
+                'num' => 2,
+                'name' => 'Test Product 2',
+                'quantity' => 2,
+                'price' => 10,
+                'fullPrice' => 20,
+            ],
+            [
+                'num' => 3,
+                'name' => 'Delivery',
+                'quantity' => 1,
+                'price' => 10,
+                'fullPrice' => 10,
+                'isService' => 1,
+            ],
+        ],
+    ]);
     
     print_r($result);
 } catch (\Exception $e) {
@@ -492,15 +663,14 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
     
     $order = [
         'AMOUNT' => 1000,
-        'ORDER_NUMBER' => 'sa12',
+        'ORDER_NUMBER' => '1',
         'ORDER_DESCRIPTION' => 'My desc',
-        'BACK_URL' => 'http://example.ru/payments/avangard/?result=success'
+        'BACK_URL' => 'https://example.ru/payments/avangard/?result=success'
     ];
     
     $registerResult = $apiClient->request->orderRegister($order);
@@ -517,7 +687,7 @@ try {
 
 ## Операции по заказу
 
-1. `getOpersByOrderNumber($order_number)` - получить список операций по номеру заказа в интернет-магазине.
+1. `getOpersByOrderNumber($order_number)` - получить список операций по номеру заказа в интернет-магазине
 
 Параметры:
 - `string $order_number` - номер заказа в интернет-магазине
@@ -558,7 +728,6 @@ try {
         'exp_yy' => 15,
     ]
 ]
-
 ```
  
 Пример:
@@ -574,11 +743,10 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
 
-    $result = $new->request->getOpersByOrderNumber("sa12");
+    $result = $new->request->getOpersByOrderNumber("1");
     
     print_r($result);
 } catch (\Exception $e) {
@@ -588,7 +756,43 @@ try {
 }
 ```
 
-2. `getOpersByDate($date)` - получить список операций за определённую дату.
+2. `getTicketByOrderNumber($order_number)` - возвращает TICKET-параметр первой оплаченной операции по номеру заказа в интернет-магазине (может использоваться для возврата денежных средств)
+
+Параметры:
+- `string $order_number` - номер заказа в интернет-магазине
+
+Возвращаемое значение:
+```php
+"UWyNLGVh000012669958czZpckkboKNDpUysDhlL"
+```
+
+Пример:
+```php
+<?php
+require_once "vendor/autoload.php";
+use Avangard\ApiClient;
+
+$debug = true;
+
+try {
+    $apiClient = new ApiClient(
+        1,
+        'shop password',
+        'shop sign',
+        'server sign'
+    );
+
+    $result = $new->request->getTicketByOrderNumber("1");
+    
+    print_r($result);
+} catch (\Exception $e) {
+    if ($debug) {
+         \Avangard\Lib\Logger::log($e);
+     }
+}
+```
+
+3. `getOpersByDate($date)` - получить список операций за определённую дату.
 
 Параметры:
  - `string $date` - дата
@@ -609,8 +813,7 @@ try {
         1,
         'shop password',
         'shop sign',
-        'server sign',
-        null
+        'server sign'
     );
 
     $result = $apiClient->request->getOpersByDate("2019-11-06");
@@ -622,215 +825,3 @@ try {
      }
 }
 ```
-
-## Отправка чеков в онлайн-кассу
-Библиотека позволяет отправлять чеки в онлайн-кассу. На данный момент реализована интеграция с кассами АТОЛ Онлайн 
-ФФД 1.05, АТОЛ Онлайн ФФД 1.2 и OrangeData.
-
-### <a id="generateBoxAuth">Генерация авторизационных данных касс</a>
-
-Конфигурацию для подключения к онлайн-кассе следует хранить в БД в виде JSON строки. Чтобы создать валидный JSON,
-вы можете воспользоваться генератором авторизационных данных касс, входящим в состав данной библиотеки. Он расположен
-по пути `vendor/avangard/api/src/generateBoxAuth/index.php`
-
-1. `BoxAuthFactory::createBoxAuth($boxJson)` - возвращает объект с авторизационными данными для кассы `$boxAuth` для
-его передачи в конструктор класса `ApiClient`
-
-Параметры:
-- `$boxJson` - JSON объект авторизационных данных для кассы
-
-Возвращаемые значения:  
-В зависимости от выбранной кассы:
-- `AtolonlineV4` для АТОЛ Онлайн ФФД 1.05;
-- `AtolonlineV5` для АТОЛ Онлайн ФФД 1.2;
-- `Orangedata` для OrangeData;
-- `null`, если касса не выбрана или не существует;
-
-Пример:
-```php
-<?php
-require_once "vendor/autoload.php";
-use Avangard\ApiClient;
-use Avangard\Lib\Box\BoxAuthFactory;
-
-$debug = true;
-
-try {
-    $boxJson = $db->getBoxJson(); // Ваш метод получения JSON строки с авторизационными данными для кассы
-    $boxAuth = BoxAuthFactory::createBoxAuth($boxJson);
-
-    $apiClient = new ApiClient(
-        1,
-        'shop password',
-        'shop sign',
-        'server sign',
-        $boxAuth
-    );
-    
-    var_dump($apiClient->request->isBox()); // true, в случае успешного подключения к кассе
-} catch (\Exception $e) {
-    if ($debug) {
-         \Avangard\Lib\Logger::log($e);
-     }
-}
-```
-
-**ВНИМАНИЕ!**  
-Если объект класса `ApiCLient` был создан с параметром `$boxAuth`, отличным от `null`, то в конструкторе класса
-производится попытка установки соединения с кассой. Если подключиться к кассе не удалось, то выбрасывается `Exception`, 
-и дальнейшая работа скрипта прекращается
-
-### Подготовка чека для отправки в онлайн кассу
-
-Чек для отправки в онлайн кассу представляет собой объект класса `ReceiptEntity`
-```php
-$receipt = new ReceiptEntity($id, $time);
-```
-
-Параметры конструктора:
-- `string $id` - номер заказа в интернет-магазине
-- `int $time` - текущее время в виде timestamp
-
-Другие параметры класса:
-- `ClientEntity $client` - объект с информацией о покупателе
-- `ReceiptItemEntity[] $items` - массив объектов с информацией по каждой позиции в чеке
-- `float $total` - общая сумма покупки, включая доставку
-
-Информация о покупателе представлена в виде объекта класса `ClientEntity`
-```php
-$client = new ClientEntity($name);
-```
-
-Параметры конструктора:
-- `string $name` - ФИО покупателя
-
-Другие параметры класса:
-- `string $phone` - телефон покупателя
-- `string $email` - email покупателя
-
-Информация о позиции в чеке представлена в виде объекта класса `ReceiptItemEntity`
-```php
-$receiptItem = new ReceiptItemEntity($name, $price, $quantity, $sum);
-```
-
-Параметры конструктора:
-- `string $name` - название товара
-- `float $price` - цена товара
-- `float $quantity` - количество товара
-- `float $sum` - общая стоимость товаров (обычно, количество*цена)
-
-Другие параметры класса:
-- `string $payment_object` - объект расчёта
-
-Чтобы добавить в чек доставку, воспользуйтесь методом `ReceiptItemEntity::delivery`
-```php
-$deliveryReceiptItem = ReceiptItemEntity::delivery($name, $price, $quantity, $sum);
-```
-
-Параметры метода аналогичны используемым в конструкторе `ReceiptItemEntity`. Отличие этого метода в том, что
-в нём устанавливается `$payment_object = 'service'`, что соответствует объекту расчёта "Услуга". 
-
-По умолчанию объект расчёта для каждой позиции в чеке берётся из JSON объекта с авторизационными данными для кассы, 
-но если вам нужно добавить в чек позицию с иным объектом рассчёта, то после создания объекта `ReceiptItemEntity`
-вызовите метод `setPaymentObject($paymentObject)` и передайте строковое значение объекта расчёта, как того требует
-документация вашей онлайн кассы
-```php
-$receiptItem = new ReceiptItemEntity($name, $price, $quantity, $sum);
-
-$receiptItem->setPaymentObject('commodity')
-```
-
-Чтобы подготовить чек для отправки в онлайн кассу, необходимо заполнить данные о компании, информацию по каждой позиции
-в чеке и общую сумму покупки.
-
-### Отправка чека в онлайн кассу
-
-1. `sendBill($data)` - отправляет чек о покупке в онлайн кассу
-
-Параметры:
-- `ReceiptEntity $data` - подготовленный к отправке в онлайн кассу чек
- 
-Пример:
-```php
-<?php
-require_once "vendor/autoload.php";
-use Avangard\ApiClient;
-use Avangard\Lib\Box\BoxAuthFactory;
-use Box\DataObjects\ClientEntity;
-use Box\DataObjects\ReceiptEntity;
-use Box\DataObjects\ReceiptItemEntity;
-
-$debug = true;
-
-try {
-    $boxJson = $db->getBoxJson(); // Ваш метод получения JSON строки с авторизационными данными для кассы
-    $boxAuth = BoxAuthFactory::createBoxAuth($boxJson);
-
-    $apiClient = new ApiClient(
-        1,
-        'shop password',
-        'shop sign',
-        'server sign',
-        $boxAuth
-    );
-    
-    // Перед отправкой чека необходимо проверять, есть ли подключение к кассе 
-    if ($apiClient->request->isBox()) {
-        $orderData = $_REQUEST['order'];
-        
-        // Создаём чек с номером заказа и текущим временем
-        $receipt = new ReceiptEntity((string)$orderData['id'], time());
-        
-        // Создаём и заполняем объект данных о покупателе
-        $client = new ClientEntity($orderData['client_firstname'] . ' ' . $orderData['client_lastname']);
-        
-        // Одно из двух полей phone или email должно быть обязательно заполнено
-        $client->setPhone($order['phone']);
-        $client->setEmail($order['email']);
-        
-        // Добавляем данные о покупателе в чек 
-        $receipt->addClient($client);
-
-        // Добавляем общую сумму заказа в чек
-        $receipt->addTotal($order['total']);
-
-        // Заполняем позиции в чеке
-        foreach ($orderData['items'] as $product) {
-            $receipt->addReceiptItem(
-                new ReceiptItemEntity(
-                    $product['name'],
-                    $product['price'],
-                    $product['quantity'],
-                    $product['total']
-                )
-            );
-        }
-
-        // Если есть платная доставка, добавляем её в чек
-        if (!empty($orderData['delivery'])) {
-            $receipt->addReceiptItem(
-                ReceiptItemEntity::delivery(
-                    $orderData['delivery']['name'],
-                    round($orderData['delivery']['price']),
-                    1,
-                    round($orderData['delivery']['price'])
-                )
-            );
-        }
-
-        // Отправляем чек в кассу
-        $this->client->request->sendBill($receipt);
-    }
-} catch (\Exception $e) {
-    if ($debug) {
-         \Avangard\Lib\Logger::log($e);
-     }
-}
-```
-
-2. `refundBill($data)` - отправляет чек о возврате денежных средств в онлайн кассу
-
-Параметры:
-- `ReceiptEntity $data` - подготовленный к отправке в онлайн кассу чек
-
-Использовать аналогично методу `sendBill($data)`.

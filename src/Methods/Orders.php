@@ -192,8 +192,19 @@ trait Orders
 
 
             case ApiClient::GETURL:
-                $inputs = $this->orderRegister($order);
-                return $this->getRequestUrl() . '/pay?' . http_build_query(['ticket' => $inputs['TICKET']]);
+                $result = [];
+
+                if ($this->isPaymentTypeCard($paymentType)) {
+                    $inputs = $this->orderRegister($order);
+                    $result['PAY_URL'] = $this->getRequestUrl() . '/pay?' . http_build_query(['ticket' => $inputs['TICKET']]);
+                }
+
+                if ($this->isPaymentTypeQr($paymentType)) {
+                    $inputsQr = $this->orderRegister(array_merge($order, ['IS_QR' => 1]));
+                    $result['PAY_URL_QR'] = $this->getRequestUrl() . '/pay?' . http_build_query(['ticket' => $inputsQr['TICKET']]);
+                }
+
+                return $result;
 
             default:
                 throw new \InvalidArgumentException(
