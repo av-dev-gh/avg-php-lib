@@ -9,7 +9,6 @@ use Avangard\ApiClient;
 use Avangard\Lib\Convertor;
 use Avangard\Lib\ArrayToXml;
 use DOMException;
-use GuzzleHttp\Exception\GuzzleException;
 
 /**
  * Trait Orders (register order into bank's payment system (PS))
@@ -94,7 +93,7 @@ trait Orders
 
         $url = $this->getRequestUrl() . '/h2h/get_order_info';
 
-        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->h2h($url, $xml);
 
         $status = $result->getStatusCode();
 
@@ -104,11 +103,11 @@ trait Orders
             );
         }
 
-        $response = $result->getBody()->getContents();
+        $response = $result->getBody();
 
-        error_reporting(1); 
+        error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
-        error_reporting(E_ALL); 
+        error_reporting(E_ALL);
 
         if (!isset($resultObject['response_code'])) {
             throw new \InvalidArgumentException(
@@ -137,7 +136,6 @@ trait Orders
      * - PAYMENT_TYPE - (ApiClient::PAYMENT_TYPE_CARD, ApiClient::PAYMENT_TYPE_QR, ApiClient::PAYMENT_TYPE_ALL) способ оплаты. По карте, по QR или оба типа. По умолчанию ApiClient::PAYMENT_TYPE_CARD
      *
      * @return array|string
-     * @throws DOMException|GuzzleException
      */
     public function prepareForms($params)
     {
@@ -229,7 +227,6 @@ trait Orders
      *
      * @param $order
      * @return array
-     * @throws DOMException|GuzzleException
      */
     public function orderRegister($order)
     {
@@ -251,7 +248,7 @@ trait Orders
 
         $url = $this->getRequestUrl() . '/h2h/reg';
 
-        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->h2h($url, $xml);
 
         $status = $result->getStatusCode();
 
@@ -261,11 +258,11 @@ trait Orders
             );
         }
 
-        $response = $result->getBody()->getContents();
+        $response = $result->getBody();
 
-        error_reporting(1); 
+        error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
-        error_reporting(E_ALL); 
+        error_reporting(E_ALL);
 
         if (!isset($resultObject['response_code'])) {
             throw new \InvalidArgumentException(

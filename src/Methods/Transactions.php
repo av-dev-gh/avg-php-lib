@@ -5,7 +5,6 @@
 
 namespace Avangard\Methods;
 
-use Avangard\ApiClient;
 use Avangard\Lib\Convertor;
 use Avangard\Lib\ArrayToXml;
 
@@ -30,7 +29,7 @@ trait Transactions
 
         $url = $this->getRequestUrl() . '/h2h/get_opers_list';
 
-        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->h2h($url, $xml);
 
         $status = $result->getStatusCode();
 
@@ -40,9 +39,9 @@ trait Transactions
             );
         }
 
-        $response = $result->getBody()->getContents();
+        $response = $result->getBody();
 
-        error_reporting(1); 
+        error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
         error_reporting(E_ALL);
 
@@ -102,7 +101,7 @@ trait Transactions
 
         $url = $this->getRequestUrl() . '/h2h/get_opers_by_date';
 
-        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->h2h($url, $xml);
 
         $status = $result->getStatusCode();
 
@@ -112,11 +111,11 @@ trait Transactions
             );
         }
 
-        $response = $result->getBody()->getContents();
+        $response = $result->getBody();
 
-        error_reporting(1); 
+        error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
-        error_reporting(E_ALL); 
+        error_reporting(E_ALL);
 
         if(!isset($resultObject['response_code'])) {
             throw new \InvalidArgumentException(

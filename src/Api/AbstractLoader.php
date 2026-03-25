@@ -5,11 +5,6 @@
 
 namespace Avangard\Api;
 
-use Box\DataObjects\BaseAuth;
-use Box\BaseBox;
-use Box\BoxFactory;
-use GuzzleHttp\Client;
-
 /**
  * Class AbstractLoader
  *
@@ -26,13 +21,6 @@ abstract class AbstractLoader
      * API url of production environment
      */
     const REQUEST_URL_PRODUCTION = 'https://pay.avangard.ru/iacq';
-
-    /**
-     * Object of Guzzle client
-     *
-     * @var Client
-     */
-    protected $net_client;
 
     /**
      * Bank shop id
@@ -77,21 +65,19 @@ abstract class AbstractLoader
      * @param $shop_sign
      * @param $server_sign
      * @param $test_mode
-     * @param $proxy
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode, $proxy)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode)
     {
         if (empty($shop_id) ||
             empty($shop_password) ||
             empty($shop_sign) ||
             empty($server_sign)
-            ) {
+        ) {
             throw new \InvalidArgumentException(
                 "Incorrect arguments in abstract constructor."
             );
         }
 
-        $this->net_client = new Client((!empty($proxy) ? ['proxy' => $proxy, 'http_errors' => false, 'verify' => false] : ['http_errors' => false, 'verify' => false]));
         $this->shop_id = (string)$shop_id;
         $this->shop_password = (string)$shop_password;
         $this->shop_sign = (string)$shop_sign;

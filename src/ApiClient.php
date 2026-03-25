@@ -58,9 +58,9 @@ class ApiClient
      * @param bool $test_mode
      * @param string $proxy
      */
-    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $test_mode = false, $proxy = null)
+    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $test_mode = false)
     {
-        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $test_mode, $proxy);
+        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $test_mode);
     }
 
     /**
@@ -70,7 +70,7 @@ class ApiClient
      */
     public static function getVersion()
     {
-        $ver = '4.0.0';
-        return "Library version $ver. Avangard (c) 2025.";
+        $ver = '5.0.0';
+        return "Library version $ver. Avangard (c) 2026.";
     }
 }

@@ -7,8 +7,6 @@ namespace Avangard\Methods;
 
 use Avangard\Lib\Convertor;
 use Avangard\Lib\ArrayToXml;
-use DOMException;
-use GuzzleHttp\Exception\GuzzleException;
 
 /**
  * Trait Refunds
@@ -39,7 +37,6 @@ trait Refunds
      *          ]
      *      Сумма всех товаров в ORDER_ITEMS должна равняться полю AMOUNT / 100
      * @return array
-     * @throws DOMException|GuzzleException
      */
     public function orderRefund($params)
     {
@@ -75,7 +72,7 @@ trait Refunds
 
         $url = $this->getRequestUrl() . '/h2h/reverse_order';
 
-        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->h2h($url, $xml);
 
         $status = $result->getStatusCode();
 
@@ -85,7 +82,7 @@ trait Refunds
             );
         }
 
-        $response = $result->getBody()->getContents();
+        $response = $result->getBody();
 
         error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
@@ -123,7 +120,6 @@ trait Refunds
      *
      * @param $ticket
      * @return bool
-     * @throws DOMException|GuzzleException
      */
     public function orderCancel($ticket)
     {
@@ -133,7 +129,7 @@ trait Refunds
 
         $url = $this->getRequestUrl() . '/h2h/cancel_order';
 
-        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->h2h($url, $xml);
 
         $status = $result->getStatusCode();
 
@@ -143,7 +139,7 @@ trait Refunds
             );
         }
 
-        $response = $result->getBody()->getContents();
+        $response = $result->getBody();
 
         error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
@@ -169,7 +165,6 @@ trait Refunds
      *
      * @param int $rev_id
      * @return bool
-     * @throws DOMException|GuzzleException
      */
     public function getRefundStatus($rev_id)
     {
@@ -181,7 +176,7 @@ trait Refunds
 
         $url = $this->getRequestUrl() . '/h2h/reverse_status';
 
-        $result = $this->net_client->request('POST', $url, ['body' => 'xml=' . $xml, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded;charset=utf-8']]);
+        $result = $this->h2h($url, $xml);
 
         $status = $result->getStatusCode();
 
@@ -191,7 +186,7 @@ trait Refunds
             );
         }
 
-        $response = $result->getBody()->getContents();
+        $response = $result->getBody();
 
         error_reporting(1);
         $resultObject = Convertor::covertToArray($response);
