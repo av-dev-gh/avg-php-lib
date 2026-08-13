@@ -15,12 +15,12 @@ abstract class AbstractLoader
     /**
      * API url of test environment
      */
-    const REQUEST_URL_TEST = 'https://pay.avangard.ru/iacq_test3';
+    const REQUEST_URL_TEST = 'https://pay.techsitea.ru/iacq_test3';
 
     /**
      * API url of production environment
      */
-    const REQUEST_URL_PRODUCTION = 'https://pay.avangard.ru/iacq';
+    const REQUEST_URL_PRODUCTION = 'https://pay.techsitea.ru/iacq';
 
     /**
      * Bank shop id
