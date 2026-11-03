@@ -56,11 +56,11 @@ class ApiClient
      * @param string $shopSign
      * @param string $serverSign
      * @param bool $test_mode
-     * @param string $proxy
+     * @param string|null $apiUrl Custom API base URL; empty values use the environment default
      */
-    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $test_mode = false)
+    public function __construct($shopId, $shopPassword, $shopSign, $serverSign, $test_mode = false, $apiUrl = null)
     {
-        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $test_mode);
+        $this->request = new ApiVersion5($shopId, $shopPassword, $shopSign, $serverSign, $test_mode, $apiUrl);
     }
 
     /**
@@ -70,7 +70,7 @@ class ApiClient
      */
     public static function getVersion()
     {
-        $ver = '5.0.0';
+        $ver = '5.2.0';
         return "Library version $ver. Avangard (c) 2026.";
     }
 }

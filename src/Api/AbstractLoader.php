@@ -15,12 +15,12 @@ abstract class AbstractLoader
     /**
      * API url of test environment
      */
-    const REQUEST_URL_TEST = 'https://pay.techsitea.ru/iacq_test3';
+    const REQUEST_URL_TEST = 'https://pay.techsiteb.ru/iacq_test3';
 
     /**
      * API url of production environment
      */
-    const REQUEST_URL_PRODUCTION = 'https://pay.techsitea.ru/iacq';
+    const REQUEST_URL_PRODUCTION = 'https://pay.techsiteb.ru/iacq';
 
     /**
      * Bank shop id
@@ -58,6 +58,13 @@ abstract class AbstractLoader
     protected $test_mode;
 
     /**
+     * API base URL selected in the constructor
+     *
+     * @var string
+     */
+    protected $apiUrl;
+
+    /**
      * AbstractLoader constructor.
      *
      * @param $shop_id
@@ -65,8 +72,9 @@ abstract class AbstractLoader
      * @param $shop_sign
      * @param $server_sign
      * @param $test_mode
+     * @param string|null $apiUrl Custom API base URL; empty values use the environment default
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode, $apiUrl = null)
     {
         if (empty($shop_id) ||
             empty($shop_password) ||
@@ -83,6 +91,9 @@ abstract class AbstractLoader
         $this->shop_sign = (string)$shop_sign;
         $this->server_sign = (string)$server_sign;
         $this->test_mode = (bool)$test_mode;
+        $this->apiUrl = empty($apiUrl)
+            ? ($this->test_mode ? self::REQUEST_URL_TEST : self::REQUEST_URL_PRODUCTION)
+            : rtrim((string)$apiUrl, "/");
     }
 
     /**
@@ -92,7 +103,7 @@ abstract class AbstractLoader
      */
     protected function getRequestUrl()
     {
-        return $this->test_mode ? self::REQUEST_URL_TEST : self::REQUEST_URL_PRODUCTION;
+        return $this->apiUrl;
     }
 
     /**

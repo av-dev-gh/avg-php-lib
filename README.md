@@ -34,7 +34,7 @@ composer install
 require_once ("vendor/autoload.php");
 use Avangard\ApiClient;
 
-$apiClient = new ApiClient($shopId, $shopPassword, $shopSign, $serverSign, $test_mode, $proxy);
+$apiClient = new ApiClient($shopId, $shopPassword, $shopSign, $serverSign, $test_mode, $apiUrl);
 ```
 
 ### Параметры конструктора
@@ -43,7 +43,7 @@ $apiClient = new ApiClient($shopId, $shopPassword, $shopSign, $serverSign, $test
 - `shopSign` - подпись интернет-магазина в банковской системе*
 - `serverSign` - подпись ответов банка*
 - `test_mode` - булево значение, включающее тестовый режим (запросы будут отправляться на тестовый URL). По умолчанию `false`
-- `proxy` - http URL прокси сервера (если используется). По умолчанию `null`
+- `apiUrl` - необязательный базовый URL API банка без пути операции. Непустое значение используется независимо от `test_mode`; завершающий `/` удаляется. Если параметр не передан или имеет пустое значение, используются актуальные API URL по умолчанию в текущей версии библиотеки. По умолчанию `null`
 
 *указанные параметры выдаются техподдержкой банка при заключении договора на интернет-эквайринг
 

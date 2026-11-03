@@ -23,11 +23,11 @@ class ApiVersion5 extends AbstractLoader
      * @param $shop_sign
      * @param $server_sign
      * @param $test_mode
-     * @param $proxy
+     * @param string|null $apiUrl Custom API base URL; empty values use the environment default
      */
-    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode)
+    public function __construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode, $apiUrl = null)
     {
-        parent::__construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode);
+        parent::__construct($shop_id, $shop_password, $shop_sign, $server_sign, $test_mode, $apiUrl);
     }
 
     use Lib\Request;
