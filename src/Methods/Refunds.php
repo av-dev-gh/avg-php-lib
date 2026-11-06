@@ -37,6 +37,7 @@ trait Refunds
      *          ]
      *      Сумма всех товаров в ORDER_ITEMS должна равняться полю AMOUNT / 100
      * @return array
+     * @throws \InvalidArgumentException Если запрос отклонён или исполнение QR-возврата не подтверждено за 8 проверок
      */
     public function orderRefund($params)
     {
@@ -94,15 +95,24 @@ trait Refunds
             );
         }
 
-        if (isset($resultObject['rev_id'])) {
+        if ($resultObject['response_code'] == 0 && isset($resultObject['rev_id'])) {
             $maxRequestsCount = 8;
             $secondsBetweenRequests = 5;
+            $refundCompleted = false;
 
             for ($i = 0; $i < $maxRequestsCount; $i++) {
                 sleep($secondsBetweenRequests);
 
-                if ($this->getRefundStatus($resultObject['rev_id']))
+                if ($this->getRefundStatus($resultObject['rev_id'])) {
+                    $refundCompleted = true;
                     break;
+                }
+            }
+
+            if (!$refundCompleted) {
+                throw new \InvalidArgumentException(
+                    'orderRefund: QR refund execution not confirmed after ' . $maxRequestsCount . ' status checks'
+                );
             }
         }
 
